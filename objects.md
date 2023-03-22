@@ -1,64 +1,10 @@
-
--------------------------
--------------------------
-# Practices
-
-## Pods' philosophy
-
-Il faut les envisager comme des resources _scalables_ et _monitorables_. Il faut aussi considérer la sécurité et le networking. C'est via ces critères que l'on choisit les conteneurs que l'on veut regrouper dans un pod ou pas. 
-
-Ex 1 : si 2 processes doivent scale up en meme temps genre 1 conteneurs applicatif avec un conteneur de monitoring alors on va mettre ces 2 conteneurs dans un pod. 
-
-Ex 2 : si 2 conteneurs partagent les meme règles de sécurité ou bien qu'ils doivent accéder à un service avec la même identité, alors il faut envisager des les déployer dans le meme pod.
-
-## Cheatsheets
-
-### YAML definitions files
-
-4 clés sont à la racine : 
-* `apiVersion`, `kind` >> ces 2 là sont assez vite vus car il y a pas 300 solutions (cf. screen) 
-
-![pod_yaml_kind_version](images/pod_yaml_kind_version.png)
-
-* `metadata` >> où l'on peut annoter des choses concernant le pod, notamment la clé `labels` qui permet en général de distinguer les pods sur le cluster (le choix des clés est libre pour tout ce qui se trouve dans les labels)
-* `spec` >> c'est là que tout va se jouer. À noter que les clés possibles dans cette partie sont différentes selon ce qu'on a choisi de déployer i.e. ce qu'on a mis dans `apiVersion`, `kind`
-  * `containers` est une liste car on peut avoir plusieurs containers dans un pod. C'est ici qu'on va renseigner l'image docker sur le registry docker hub (on peut utiliser un autre regitry bien sûr, dans ce cas il faut mettre l'url en entier)
-
-## CLI commands
-
-* pour créer un pod sans passer par un controller
-```sh
-kubectl run pod-name -i <image-name>
-```
-
-* Pour appliquer un _def file_
-```sh
-kubectl create -f <path-to-yaml>
-```
-ou
-```sh
-kubectl apply -f <path-to-yaml>
-```
-qui fonctionne tout le temps i.e. pour la creation ou l'édition
-
-* pour générer un def file facilement
-```sh
-kubectl run redis --image=redis123 --dry-run=client -o yaml > redis-pod.yaml
-```
-
-* pour generer un conf file de type Deployment p ex 
-```sh
-kubectl run --generator=deployment/v1beta1 nginx --image=nginx --dry-run --replicas=4 -o yaml > nginx-deployment.yaml
-```
-
-* si on est ssh sur le master node, on peut toujours se ssh sur un worker node via l'ip interne de kube i.e. celle qui commence par `10.*`
-
-
 # Controllers
 
 ## Replica Set (ou Replication controller - legacy)
 
-Utile pour avoir une HA, pour du LB et du Scaling. À noter que ce controller peut agir au dela du scope d'un node worker
+> Utile pour avoir une HA, pour du LB et du Scaling. 
+
+> Il peut agir au dela du scope d'un node worker
 
 ![replication_controller](./images/replication_controller.png)
 
@@ -66,11 +12,9 @@ Dans le def file, il y a 2 clés importantes :
 * `template` inclut un Pod definition file (à l'exception de apiVersion et kind)
 * `replicas`
 
-RQ : on peut interroger le cluster kube pour connaitre les replicaset via la command `kubectl get replicas<tab>`
+Pour les replicasets, c'est comme les replica controllers mais l'idée c'est de décorreler la conf avec celle des pods via la clé `selectors` en utilisant `matchLabels` p ex
 
-Pour les replicasets, c'est comme les replica controllers mais l'idée c'est de décorreler la conf avec celle des pods via la clé `selectors` en utilisant matchLabels p ex
-
-les command lines : `kubectl replace -f <path-to-def-file>` en ayant update la conf au prealable. ou bien `kubectl scale` mais attention car on peut desynchro la conf avec celle dans le cluster. 
+les command lines : `kubectl replace -f <path-to-def-file>` en ayant update la conf au prealable, ou bien `kubectl scale` mais attention car on peut desynchro la conf avec celle dans le cluster. 
 
 Question : à quelle moment est utilisé la clé `template` ? est ce que ca veut dire que les replicas peuvent différer de la definition du pod ? quel interet ?
 
@@ -80,10 +24,9 @@ Question : à quelle moment est utilisé la clé `template` ? est ce que ca veut
 
 C'est la partie qui nous permet de configurer comment vont se déployer nos pods.
 
-RQ : une conf Deployment encapsule la ou les confs Replica Sets (cf. picture)
+RQ : la conf Deployment "encapsule" la conf Replica Sets
 
 ![Deployment](./images/deployment.png)
-
 
 # Services
 
