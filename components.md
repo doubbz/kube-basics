@@ -32,13 +32,16 @@ Le pattern utilisé est le "`control loop`" : il surveille l'état du cluster à
 
 ### Scheduler
 
-> C'est celui qui selectionne le node sur lequel un pod va être créé via un ranking de chaque node pour déterminer le meilleur
-
+> Il assigne un pod à un node. 
 
 Il ne va pas vraiment créer les Pods (c'est Kubelet qui s'en charge)
+Il détermine un ranking de chaque node pour déterminer le meilleur pour le pod.
 
 <details>
-Le scheduler va regarder les requirements pour le pod. À partir de là il va d'abord exclure les nodes qui ne correspondent pas du tout (ex CPU insuffisant). Ensuite il va scorer/rank chaque node pour déterminer le meilleur. 
+
+Le scheduler est un objet qui  va regarder les requirements pour le pod. À partir de là il va d'abord exclure les nodes qui ne correspondent pas du tout (ex CPU insuffisant). Ensuite il va scorer/rank chaque node pour déterminer le meilleur. 
+
+Ensuite ça devient technique car il faut savoir qu'une fois qu'un pod existe, kube n'autorise plus l'édition de la clé `nodeName`. Ce que fait kube-scehduler c'est qu'il va créé un objet `Binding` avec le node choisi en target via une POST request sur `/pods/$PODNAME/binding` avec le def file `kind: Binding` JSONifié
 </details>
 
 <details>

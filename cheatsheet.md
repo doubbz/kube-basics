@@ -13,9 +13,9 @@
 
 ## CLI commands
 
-* pour créer un pod sans passer par un controller
+* pour créer un pod dont le conteneur expose le port 8080 et est exposé via un service clusterIP
 ```sh
-kubectl run pod-name -i <image-name>
+kubectl run pod-name -i <image-name> --port=8080 --expose
 ```
 
 * Pour appliquer un _def file_
@@ -35,9 +35,10 @@ kubectl run redis --image=redis123 --dry-run=client -o yaml > redis-pod.yaml
 
 * pour generer un conf file de type Deployment p ex 
 ```sh
-kubectl run --generator=deployment/v1beta1 nginx --image=nginx --dry-run --replicas=4 -o yaml > nginx-deployment.yaml
+kubectl create deployment <name> --image=<image> --replicas=<number> --dry-run=client -o yaml > deployment-auto-gen.yaml
 ```
 
 * si on est ssh sur le master node, on peut toujours se ssh sur un worker node via l'ip interne de kube i.e. celle qui commence par `10.*`
 
-* connaitre les replicaset via la command `kubectl get replicas<tab>`
+* pour modifier les valeurs d'un context pré-existant (p ex le namespace)
+`kubectl config set-context $(kubectl config current-context) --namespace=default`
