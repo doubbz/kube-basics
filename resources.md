@@ -27,6 +27,14 @@ RQ : la conf Deployment "encapsule" la conf Replica Sets
 
 ![Deployment](./images/deployment.png)
 
+## Daemon set
+
+> il garantit qu'exactement 1 pod sera déployé sur chaque worker node. Utile pour les logs, le monitoring ou le networking en general.
+
+Le def file ressemble à celui d'un replicaset.
+
+P. ex. kube-proxy est de type daemon set
+
 # Namespace
 
 > C'est un scope pour les ressources kube (services + objets - i.e.pods&controllers) utilisé pour de l'**isolation**

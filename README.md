@@ -5,3 +5,6 @@
 3. [Scheduling](./scheduling.md)
 4. [Practices](./practices.md)
 5. [Cheatsheet](./cheatsheet.md)
+6. [Maintenance](./maintenance.md)
+7. [Security](./security.md)
+8. [Troubleshoot](./troubleshoot.md)

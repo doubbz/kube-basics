@@ -1,5 +1,9 @@
 # Cheatsheets
 
+## InitContainers
+
+* si on veut run un truc avant le lancement du/des container(s) d'un pod, on peut utiliser initContainers qui est une liste de command. La liste s'execute séquentiellement et kube attend qu'elles soient toutes terminées avec succès pour lancer le(s) container
+
 ## YAML definitions files
 
 4 clés sont à la racine : 
@@ -42,3 +46,36 @@ kubectl create deployment <name> --image=<image> --replicas=<number> --dry-run=c
 
 * pour modifier les valeurs d'un context pré-existant (p ex le namespace)
 `kubectl config set-context $(kubectl config current-context) --namespace=default`
+
+* rollout commands pour avoir des infos sur les revisions ou bien pour **rollback**
+
+```sh
+kubectl rollout status deployment/myapp-deployment
+kubectl rollout history deployment/myapp-deployment # pour lister les revisions d'une ressource
+kubectl rollout undo ... # pour rollback
+```
+
+* pour "vider" un node worker (avant un opé de maintenance p ex) cad bouger les pods existants dans les autres nodes disponibles
+```sh
+# vide le node
+kubectl drain <node-name>
+# re-remplir le node
+kubectl uncordon <node-name>
+# pour bloquer le scheduling de nouvelles ressources sur un node
+kubectl cordon <node-name>
+```
+
+* pour afficher le contenu d'un certif openssl, on utilise la commande 
+```sh 
+openssl x509 -in <path du certif> -text -noout
+```
+
+* charger la config `kubeconfig` dans curl directement (si on veut parler à l'api http de kube directement)
+```sh
+k proxy # pour lancer un proxy local qui utilisera la conf kubeconfig sans avoir à passer --cert --key -- cacert tout le temps dans curl\
+```
+
+* pour créer un serviceaccount
+```sh
+k create serviceaccount <name>
+```
