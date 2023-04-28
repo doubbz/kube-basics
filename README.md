@@ -8,3 +8,5 @@
 6. [Maintenance](./maintenance.md)
 7. [Security](./security.md)
 8. [Troubleshoot](./troubleshoot.md)
+9. [Storage](./storage.md)
+10. [Networking](./networking.md)

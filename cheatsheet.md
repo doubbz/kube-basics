@@ -79,3 +79,8 @@ k proxy # pour lancer un proxy local qui utilisera la conf kubeconfig sans avoir
 ```sh
 k create serviceaccount <name>
 ```
+
+* pour lister les PV d'un cluster
+```sh
+k get peristentvolumes
+```
