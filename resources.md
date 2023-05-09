@@ -45,7 +45,7 @@ P. ex. kube-proxy est de type daemon set
 * `kube-public` : pour les objets qui devraient être accessibles pour tout le monde
 
 À noter qu'une entrée DNS est attribué par défaut a tous les pods et service grace à kube-dns :
-* dans le meme namespace, il suffit d'appeler le nom du service (p. ex. `mysql.connect(<service-name>)` ou bien HTTP request sur le host <pod-name>) 
+* dans le meme namespace, il suffit d'appeler le nom du service (p. ex. `mysql.connect(<service-name>)` ou bien HTTP request sur le host `<pod-internal-ip>` dans le namespace ou bien `<pod-internal-ip.<namespace>.pod.cluster.local>`)
 * dans 2 namespaces différents, `<service-name>.<namespace>.svc.cluster.local`
 
 <details><summary>CLI ex</summary>
@@ -63,22 +63,29 @@ Les namespaces ont été prévu pour les environnements dev/preprod/staging/qa/p
 
 > C'est une couche abstraite pour configurer la liaison vers les Pods. 
 
+Il n'y a pas de process qui tourne pour ça car kube gère ça en appliquant des règles de networking dans les nodes e.g. dns records ou table de routing (cf. [Networking](./networking.md))
+
 ## Cluster IP
 
-> Utiles pour allouer une IP interne virtuelle à une ressource kube e.g. un pod
+> Utile pour exposer un pod via un hostname à du **trafic interne** au cluster pour les DBs p ex
 
 Il s'appuie lui aussi sur les labels d'un pod à travers la clé `selector`
 
 ![cluster ip](./images/cluster_ip_def_file.png)
 
+Ainsi, le pod est joignable via le nom du service ! p ex si j'ai un pod web-app et que je créé un service web-app-service de type clusterIP, alors les autres pods du cluster pourront appeler le pod via http://we-app-service
+
 ## Node Port
 
-> Expose un (groupe de) pod sur un port donné
+> Expose un (groupe de) pod sur un port donné à l'entrée du cluster (trafic externe). Peu utilisé en prod car il y a des limitations
 
 ![ex d'usage d'un service](./images/ex_services_usage.png)
 
 <details>
-  <summary>Attention : **Cela n'ouvre pas un accès depuis l'extérieur**</summary>, pour l'instant il est quand meme nécessaire de se trouver dans le même réseau que celui du cluster kube. 
+  <summary>Les limites :</summary>
+
+  * ports 30000 à 32767 uniquement
+  * si l'ip du node change c'est baisé
 </details>
 
 --
@@ -101,4 +108,12 @@ De la même maniere que pour les replica set, le service nodeport prévoit un cl
 
 > Si le cloud provider le supporte, il est possible d'utiliser cette conf pour mapper un nom de domaine pour un groupe de pod
 
-On utilise la meme conf que le node port mais en créant un service type `LoadBalancer` à la place.
+On utilise la meme conf que le node port mais en créant un service type `LoadBalancer` à la place qui peut disposer d'une IP publique. On pointe notre nom de domaine vers cette IP et nos users peuvent accéder à nos pods.
+
+Sous le capot, kubernetes utilise en fait un service NodePort mais en plus il va faire un appel à l'api de notre cloud provider pour provisioner un LoadBalancer configuré comme il faut pour taper sur le port directement (c'est ce qu'on devrait faire nous même si cette solution n'existait pas)
+
+Il existe encore des limites :
+* cette solution va créer un LB pour chaque service donc c'est pas gratuit si on souhaite exposer pleins d'applications
+* en pratique si on a plusieurs app à exposer publiquement, on aura probablement besoin d'un nouveau LB pour gérer des règles de forwarding ou centraliser les règles de sécurité e.g. TLS/SSL, firewall rules, etc
+
+Ainsi, sur des projets "ambitieux" on recommande en general de mettre en place un [Ingress Controller](./networking.md#ingress) dès le début.

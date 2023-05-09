@@ -15,9 +15,10 @@ Si on veut upgrade, en gros on procéder en 2 étapes :
 Note : `cat /etc/*release*` pour connaitre l'OS et sa version sur le master node et ainsi appliquer la bonne [documentation k8s pour upgrade un cluster](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/)
 
 <details>
+
 Plus précisément, si on a kubeadm on peut suivre ces étapes. 
 Sur le master node :
-* `kubectl upgrade plan` pour voir les infos d'upgrade possible. 
+* `kubeadm upgrade plan` pour voir les infos d'upgrade possible.
 * install la bonne version de `kubeadm` via `apt` 
   * `apt-get upgrade -y kubeadm=1.xx.x-xx`
 * lancer `kubeadm upgrade apply v1.xx.x`
@@ -33,6 +34,15 @@ Sur les worker nodes la manip est similaire à qqs details près :
   * `kubeadm upgrade node config --kubelet-version v1.xx.x`
   * `systemctl restart kubelet`
 * enfin on "décordonne" le node via la master `kubectl uncordon node-a`
+
+Rq : Pour savoir quelle version choisir pour l'upgrade :
+```sh
+apt update
+apt-cache madison kubeadm
+```
+sachant que pour etre sûr de savoir quelle distrib est installée sur nos host faire un `cat /etc/*release*`
+
+Quand on install les packages kube (kubeadm, kubelet, kubectl), en general on pin leur version via la commande `sudo apt-mark hold kubelet kubeadm kubectl`
 
 </details>
 

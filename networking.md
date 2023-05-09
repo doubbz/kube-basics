@@ -2,8 +2,11 @@
 
 ## Pré-requis
 
+![networking summary](./images/networking_pre-requisites.png)
+
 * `ip link` permet de voir les interfaces de networking (physique ou virtuelle) dispo sur un host.
 * `ip addr` permet de voir les IPs attribuées sur ces interfaces
+* `ip address show <filters>` pour afficher des infos filtrées qui peut s'avérer très utile dans certains cas p ex  `ip address show type bridge` pour afficher les ifaces de type bridge
 
 ### Switch (commutateur)
 
@@ -79,11 +82,11 @@ La commande `nslookup` permet de debug la resolution DNS (mais attention il ne v
 
 ### Namespace
 
-Dans le networking aussi il existe une notion de namespace sous linux. C'est aussi un mécanisme d'isolation logicielle. 
+Dans le networking aussi il existe une notion de namespace sous linux. C'est aussi un mécanisme d'isolation logicielle.
+
+Lorsqu'un conteneur est créé, kube crée pour lui un network namespace. Autrement dit, le conteneur a sa propre interface réseau, ainsi que sa propre route table et ARP table.
 
 On peut créer un namespace avec la commande `ip netns add <nom du namespace>`
-
-Le network d'un conteneur est dans un namespace isolé. Autrement dit, le conteneur a sa propre interface réseau, ainsi que sa propre route table et ARP table. 
 * `ip link -n <nom du namespace>` permet de lister les interfaces dans un namespace
 * `ip netns exec <nom du namespace> <command à executer>` permet d'executer une command dans un namespace
 * ainsi `ip netns exec <nom du namespace> arp` et `ip netns exec <nom du namespace> route` nous permette de voir que le namespace réseau isole bien les tables du host.
@@ -122,7 +125,7 @@ Si on ajoute une IP range à l'interface de type bridge que l'on a créée préc
 
 Pour l'instant les namespaces ne peuvent pas dialoguer en dehors du réseau établi par le switch (virtuel). Vu que le host est co à internet (ou à d'autres réseau), celui ci peut faire office de router :
 * pour chaque namespace, on peut ajouter une route(/gateway/door) `ip netns exec one ip rout add <addresses du réseau co au host> via <ip du host attribuée à l'interface du bridge>`
-* pour que le destinataire sache à qui répondre (i.e. le host et non pas un namespace dont il n'a pas connaissance), il faut aussi activer la feature NAT au niveau du host. Celle-ci remplace l'IP du namespace dans les paquets par celle du host. `iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE` 
+* pour que le destinataire sache à qui répondre (i.e. le host et non pas un namespace dont il n'a pas connaissance), il faut aussi activer la feature NAT au niveau du host. Celle-ci remplace l'IP du namespace dans les headers des paquets par celle du host. `iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE`
 * on peut faire pareil pour accéder à internet `ip netns exec one ip rout add default via 192.168.15.5`
 
 ![host as router](./images/host_as_router_virtual_private_network_view.png)
@@ -135,6 +138,117 @@ Pour que les namespaces soient joignables, on active le port forwarding (comme s
 * Host = le conteneur partage tout avec le host mais du coup si 2 conteneurs essaient d'écouter sur le meme port alors ca casse
 * Bridge = c'est un network privée avec l'ip 172.17.0.0 par defaut. Il utilise en grande partie les memes composants que l'on a étudié ce dessus. Chaque nouveau conteneur se voit assigner un nouveau namespace 
 
+Docker crée un network privée de type bridge qui s'appelle docker0 sur le host
+
 #### Bridge
 
-Docker crée un network privée de type bridge qui s'appelle docker0 sur le host
+C'est un software connu qui permet de gérer le network de container. Il implémente la CNI (comme la plupart des softwares sur le marché). On parle de plugin.
+
+Docker n'implémente pas CNI (il utilise son propre standard : CNM - Container Network Model). Ainsi, on ne peut pas lancer un conteneur avec le runtime docker en spécifiant un plugin CNI à utiliser. Par contre on peut lancer le conteneur sans network (option `none`) puis on utilise un plugin (p ex Bridge) pour brancher le network. C'est comme ça que fait kubernetes.
+
+### Cluster Networking
+
+Un cluster kube utilise un network pour fonctionner : chaque node doit etre connecté à ce network ce qui veut dire qu'il doit avoir une interface connecté sur ce network et avoir une IP sur cette interface (comme on l'a vu précédemment). 
+
+<details>À noter que chaque node doit également avoir un hostname unique sur le réseau et une MAC addr unique</details>
+
+Les différents services (kube-apiserver, kubelet, kube-scheduler. kube-controller-manager, etc) nécessitent chacun l'ouverture d'un port sur le node sur lequel ils tournent. Le mieux c'est de consulter la [doc](https://kubernetes.io/docs/reference/networking/ports-and-protocols/)
+
+À noter que kube ne propose pas de solution built-in pour le networking, c'est à l'installation qu'on doit choisir et implem une solution en fonction des besoins et des limites ([liste des Addons](https://kubernetes.io/docs/concepts/cluster-administration/addons/)). 
+
+Kube nécessite par ailleurs qu'un certain nombre de règles soient respectées concernant le networking pour les pods :
+* tous les pods doivent avoir une IP
+* tous les pods d'un meme node doivent pouvoir communiquer
+* tous les pods d'un node doivent pouvoir communiquer avec un pod d'un autre node sans NAT gateway
+On peut faire ça via des solution existantes mais pour mieux comprendre, essayons de lister les étapes pour le faire à la mano dans le cas d'un cluster avec 3 nodes (d'un point de vue networking worker ou master node n'a pas d'importance) :
+![cluster networking](./images/cluster_networking.png)
+1. sur chaque node (ou host), on crée une iface de type bridge
+2. chaque namespace (ou pod) doivent etre linké au bridge avec des veth (cable virtuel)
+3. chaque namespace doit obtenir une ip sur son iface co au veth/bridge
+4. on ajoute une route pour ajouter une default gateway (utile pour la suite)
+5. on active (set UP) l'iface
+![pod network script](./images/pod_network_script.png)
+
+À ce niveau les pods d'un meme node peuvent se parler. Si on ajoute des routes au niveau de chaque node (host), pour déclarer l'existance des virtual privates networks des autres nodes, ça fonctionne : `ip route add <ip network of node N> via <internal ip of node N>`. Sinon on le gère via un router et dans sa table de routing, ce qui permet de rassembler tous les privates networks de chaque node du cluster dans un seul et meme réseau
+![cluster network router](./images/cluster-network-router.png)
+
+Kube peut s'occuper de run notre script sh quand il faut si on le modifie légèrement pour qu'il implém la CNI : en gros il faut faire apparaitre des section ADD) et DEL) qui seront appelé automatiquement par kubelet à la création ou la suppression d'un pod (kubelet utilise les directories qu'on lui passe en option dans sa commande)
+![pod network script with CNI](./images/pod_network_script_cni.png)
+
+En prod, en gal on se fait pas chier à faire le script nous-meme. On peut passer le plugin que l'on veut utilisé via l'option --network-plugin de la commande kubelet. Le plugin implem la CNI du coup kubelet utilisera ses scripts et basta. 
+Rq : il faut aussi passer le dir des différents binaires du cni via l'option `--cni-bin-dir` et les conf via `--cni-conf-dir`
+
+Dans cette conf, on déclare notamment la solution à utiliser pour IPAM (IP addr management) qui permet de garantir que chaque IP est unique tout node confondu.
+
+### plugin ex: Weave
+
+Un plugin (comme weaveworks p ex) fonctionne en placant des agents (daemonset) sur chaque node qui va créer le bridge et surveiller les mouvements des pods. lorsqu'un paquet http est envoyé par un pod, le paquet est intercepté par l'agent. il va l'encapsuler dans un nouveau paquet qu'il transmettra au bon agent (sur le node de dest). Weave s'installe facilement via kubeadm au moment de la création du cluster ou en une seule ligne de commande si le cluster est deja existant. Une fois installé, on peut retrouver les deamonsets avec k get pods sur le ns kube-system et pour debug on peut retrouver les logs comme n'importe quel autre pod.
+
+### Service networking
+
+Pour rappel, en pratique on crée des service (clusterIP, nodePort, ...) pour exposer nos pods. En réalité ces services sont des règles dans les routing tables des nodes. C'est pour ça qu'on ne peut pas trouver de process associé null part. Au meme titre que kubelet pour les pods, c'est kube-proxy qui s'occupe de créer/supprimer les services. On peut spécifier la lib qu'il doit utiliser (p ex iptables)
+
+#### exemple de creation d'un service clusterIP pour attribuer une IP à un pod
+
+![service network](./images/service_network.png)
+
+On peut aussi debug ça dans les logs de kube-proxy, en gal dans le dossier `/var/log/kube-proxy.log` (faire aussi attention à la verbosité)
+
+![kube-proxy logs](./images/kube-proxy_logs.png)
+
+### DNS
+
+à chaque fois qu'un service est créé, kube-dns ajoute une entrée DNS
+
+![service dns record same namespace](./images/svc_dns_record_same_ns.png)
+![service dns record different namespace](./images/svc_dns_record_different_ns.png)
+
+Coté pods, on peut conf kube pour qu'un record soit ajouté à chaque fois qu'un pod est créé. Par contre il n'utilise pas de hostname, il utilise à la place son addr ip.
+
+![pod dns record](./images/pod_dns_record.png)
+
+Kube utilise coreDNS par def pour gérer et centraliser la résolution des nom de domaines. Du coup on peut retrouver la conf dans `/etc/coredns/Corefile` (c'est ici qu'on peut conf kube pour créer un record à chaque création de pod) et c'est également chargé via une configMap (`k get configMap | grep coredns`). Lorsqu'un pod est créé, on lui déclare l'IP du serveur DNS dans /etc/resolv.conf ainsi qu'une entrée de type search de manière à gérer le nom de domaine cluster.local (c'est pour ça qu'on peut ensuite utiliser des raccourcis dans les hostnames)
+
+![coreDNS kube](./images/coreDNS_kube.png)
+
+### Ingress
+
+Une pratique courante consiste à déployer un reverse proxy (NGINX, HAProxy, traefik) pour gérer la load balancing en entrée du cluster : c'est ce qu'on appelle un Ingress Controller. Cela permet de gérer le LB de nos services avec kube au lieu d'avoir un LB à gérer en plus en dehors. En pratique au début on se dit qu'on n'en a pas besoin et avec le temps la complexité augmente et on finit par se dire qu'on aurait dû le faire dès le début.
+
+Pour cela, le registry kube offre des images docker clé en main, p ex `quay.io/kubernetes-ingress-controller/nginx-ingress-controller` pour une image NGINX
+
+À noter qu'un ingress-controller doit être exposer en sortie du cluster donc via un service nodePort ou LoadBalancer tout comme n'importe quel pod. La diff c'est qu'on utilise qu'un seul ingress-controller par cluster. L'autre benefice c'est que la conf Securité & Fwd ou Rewrites rules etc peuvent être géré dans nos def files kube plutot que d'avoir à gérer ça dehors.
+
+Kubernetes propose de split les responsabilités dans des def files distincts :
+* ingress controller = l'image que l'on va déployer e.g. nginx, haproxy via un `kind: Deployment`
+* ingress ressources = les règles de LB que l'on veut implem sur ce reverse proxy
+
+En pratique la conf de nginx (ou autre revewrse proxy) est gérée via des configMaps montées sur le pod.
+
+Enfin, l'ingress controller ayant des responsabilités en terme de sécurité, en pratique on a besoin de lui attribuer un `kind: ServiceAccount` dédié afin de lui occroyer les permissions nécessaire pour fonctionner.
+
+Les ingress resources c'est de la conf. On utilise un def file `kind: Ingress`. Coté spec le min c'est de déclarer le `backend:` en spécifiant le nom du service destinataire et son port. `k get ingress` pour visualiser. On les utilise pour créer des règles de routing basées sur l'URL. Le def file prévoit aussi un default backend au cas où le path de la requete ne match avec aucune des regles déclarées dans le def file
+
+ex de commandes :
+* `kubectl create ingress <ingress-name> --rule="host/path=service:port"`
+* `kubectl create ingress ingress-test --rule="wear.my-online-store.com/wear*=wear-service:80" --dry-run=client -o yaml > ingress.yaml`
+
+ex d'une regle de rewrite utilisant une expr reguliere `replace("/something(/|$)(.*)", "/$2")`
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  name: rewrite
+  namespace: default
+spec:
+  rules:
+  - host: rewrite.bar.com
+    http:
+      paths:
+      - backend:
+          serviceName: http-svc
+          servicePort: 80
+        path: /something(/|$)(.*)
+```

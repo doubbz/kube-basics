@@ -28,7 +28,7 @@ La logique de ce service est split en plusieurs partie :
 
 Mais ils sont tous regrouper dans un unique binaire/service process `kube-controller-manager`
 
-Le pattern utilisé est le "`control loop`" : il surveille l'état du cluster à intervalle régulier (configurable) et applique (ou demande) des modifs lorsque nécessaire.
+Le pattern utilisé est le "`control loop`" d'où son nom : il surveille l'état du cluster à intervalle régulier (configurable) et applique (ou demande) des modifs lorsque nécessaire.
 
 ### Scheduler
 
@@ -72,7 +72,7 @@ C'est une vraie API, dans le sens où l'on peut l'interroger via des requete HTT
 
 <details>
   <summary>...</summary>
-  Etcd is fault tolerant and distributed.
+  Etcd is fault tolerant (consistent) and distributed.
 </details>
 
 ### Cloud-Controller-Manager (optionnel)

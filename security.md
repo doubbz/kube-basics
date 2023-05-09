@@ -12,6 +12,10 @@
   * ou enfin via un/des fichier(s) monté(s) grace à la clé `volume`
 * Important de préciser que n'importe qui pouvant creer un pod/deployment dans le namespace peut accéder aux secrets. Il est possible de limiter ça via le [RBAC](https://kubernetes.io/docs/concepts/security/rbac-good-practices/)
 
+En pratique on utilise le plus souvent `generic` : `k create secret generic -h` pour voir les options.
+
+`kubectl get secret db-user-pass -o jsonpath='{.data}'` pour visualiser les data
+
 ### Docker private registries
 
 C'est via la feature Secret que kube propose de gérer l'authentification vers le ou les registry docker privés qu'on voudrait utiliser. **C'est un secret de type "docker-registry"**. Une fois ce secret créé, on peut l'utiliser dans le def file d'une ressource.
@@ -148,4 +152,3 @@ On utilise un objet `kind: NetworkPolicy` pour inverser cette logique, cad que p
 On sélectionne les pods grace à leurs labels comme pour les ReplicationControllers via le noeud `podSelector:`. 
 On peut ensuite ajouter des règles pour autoriser du traffic entrant (ingress) ou sortant (egress).
 Ici encore on sélectionne la trafic via une clé `podSelector:`. Il faut peut etre aussi filtrer via le namespace grace au noeud `namespaceSelector:` quand le label ne suffit pas. Enfin, il existe aussi un moyen de "sélectionner"/autoriser via un range d'IP grace au noeud `ipBlock:`
-
