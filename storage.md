@@ -41,7 +41,7 @@ Pour utiliser un volume avec Kubernetes, cela se fait en 2 étapes :
 
 Il existe plusieurs `storage type solutions` (GCP, AWS, etc) et il est meme possible d'écrire sur le host cad le node (attention car la donnée ne sera pas les memes sur tous les nodes du coup ^^) 
 
-#### PVC
+#### PV/PVC
 
 C'est une manière de centraliser la configuration du system de persistence utilisé dans un cluster. 
 
@@ -59,3 +59,11 @@ On peut enfin utiliser un PVC dans un pod en tant que volume.
 #### Dynamic provisioning: Storage Class
 
 Pour éviter d'avoir à provisioner (créer) les espaces de stockage à chaque fois un PV est créé, on peut utiliser un `kind: StorageClass`
+
+Local volumes (`provisioner: kubernetes.io/no-provisioner`) do not currently support dynamic provisioning, however a StorageClass should still be created to delay volume binding until Pod scheduling. This is specified by the WaitForFirstConsumer volume binding mode.
+
+### Volume != Persistent Volume
+
+Volume decouples the storage from the Container. Its **lifecycle is coupled to a pod**. It enables safe container restarts and **sharing data between containers in a pod**.
+
+**Persistent Volume decouples the storage from the Pod**. Its lifecycle is independent. It enables safe pod restarts and **sharing data between pods**.

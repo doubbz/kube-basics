@@ -46,7 +46,7 @@ Ensuite ça devient technique car il faut savoir qu'une fois qu'un pod existe, k
 
 <details>
   <summary>À noter que le Scheduler peut etre completement configurer/overrider</summary>
-  Il est possible de créer des scheduler custom. Kube prévoit d'ailleurs que plusieurs scheduler peuvent tourner en meme temps. Attention, il faut toutefois les configurer d'ubne certaine maniere en definissant un leader (relire la doc à ce sujet peut etre)
+  Il est possible de créer des scheduler custom. Kube prévoit d'ailleurs que plusieurs scheduler peuvent tourner en meme temps. Attention, il faut toutefois les configurer d'une certaine maniere en definissant un leader (relire la doc à ce sujet peut etre)
 
   Il faut savoir que le scheduler par defaut tourne comme un (static) pod (au meme titre que la plupart des services kube). On peut récupérer le manifest yaml du scheduler par defaut. On voit qu'il pull l'image binaire compilé et lance la commande kube-scehduler dans le conteneur comme n'importe quel autre commande. On peut donc faire pareil mais on n'est pas obligé de le faire via un pod static. On spécifie ensuite le scheduler qu'on veut via un conf file qu'on veut schedulé (clé `spec.schedulerName`).
 </details>
@@ -94,7 +94,7 @@ Les contrôleurs suivants peuvent avoir des dépendances de fournisseur de cloud
 
 > Capitaine d'un worker node
 
-Il gère les opérations sur son node : p ex il est capable de créer des PODs sauf que ce n'est pas lui qui sait lesquels doivent etre créé. En fait pour ca il interroge le master node (via apiserver).
+Il gère les opérations sur son node : p ex il est capable de créer des PODs sauf que ce n'est pas lui qui sait lesquels doivent etre créé. En fait pour ca il interroge le master node (via apiserver). C'est lui qui lance le container runtime. C'est lui aussi qui execute les commandes "réseau" du CNI
 
 <details>
   <summary>Static PODs</summary>

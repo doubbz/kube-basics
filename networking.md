@@ -86,9 +86,9 @@ Dans le networking aussi il existe une notion de namespace sous linux. C'est aus
 
 Lorsqu'un conteneur est créé, kube crée pour lui un network namespace. Autrement dit, le conteneur a sa propre interface réseau, ainsi que sa propre route table et ARP table.
 
-On peut créer un namespace avec la commande `ip netns add <nom du namespace>`
+On peut créer un namespace avec la commande `ip netns add <nom du namespace>` (`ip netns` pour lister les namespaces existants sur le host)
 * `ip link -n <nom du namespace>` permet de lister les interfaces dans un namespace
-* `ip netns exec <nom du namespace> <command à executer>` permet d'executer une command dans un namespace
+* `ip netns exec <nom du namespace> <command à executer>` ou plus simplement `ip -n <nom du ns> <command à run>` permet d'executer une command dans un namespace
 * ainsi `ip netns exec <nom du namespace> arp` et `ip netns exec <nom du namespace> route` nous permette de voir que le namespace réseau isole bien les tables du host.
 
 Un namespace peut être vu comme un appareil (ordi)
@@ -124,7 +124,7 @@ Si on ajoute une IP range à l'interface de type bridge que l'on a créée préc
 ![host in private network](./images/host_as_any_device_in_private_network.png)
 
 Pour l'instant les namespaces ne peuvent pas dialoguer en dehors du réseau établi par le switch (virtuel). Vu que le host est co à internet (ou à d'autres réseau), celui ci peut faire office de router :
-* pour chaque namespace, on peut ajouter une route(/gateway/door) `ip netns exec one ip rout add <addresses du réseau co au host> via <ip du host attribuée à l'interface du bridge>`
+* pour chaque namespace, on peut ajouter une route(/gateway/door) `ip netns exec one ip route add <addresses du réseau co au host> via <ip du host attribuée à l'interface du bridge>`
 * pour que le destinataire sache à qui répondre (i.e. le host et non pas un namespace dont il n'a pas connaissance), il faut aussi activer la feature NAT au niveau du host. Celle-ci remplace l'IP du namespace dans les headers des paquets par celle du host. `iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE`
 * on peut faire pareil pour accéder à internet `ip netns exec one ip rout add default via 192.168.15.5`
 
@@ -160,6 +160,7 @@ Kube nécessite par ailleurs qu'un certain nombre de règles soient respectées 
 * tous les pods doivent avoir une IP
 * tous les pods d'un meme node doivent pouvoir communiquer
 * tous les pods d'un node doivent pouvoir communiquer avec un pod d'un autre node sans NAT gateway
+
 On peut faire ça via des solution existantes mais pour mieux comprendre, essayons de lister les étapes pour le faire à la mano dans le cas d'un cluster avec 3 nodes (d'un point de vue networking worker ou master node n'a pas d'importance) :
 ![cluster networking](./images/cluster_networking.png)
 1. sur chaque node (ou host), on crée une iface de type bridge
@@ -176,9 +177,11 @@ Kube peut s'occuper de run notre script sh quand il faut si on le modifie légè
 ![pod network script with CNI](./images/pod_network_script_cni.png)
 
 En prod, en gal on se fait pas chier à faire le script nous-meme. On peut passer le plugin que l'on veut utilisé via l'option --network-plugin de la commande kubelet. Le plugin implem la CNI du coup kubelet utilisera ses scripts et basta. 
-Rq : il faut aussi passer le dir des différents binaires du cni via l'option `--cni-bin-dir` et les conf via `--cni-conf-dir`
+Rq : il faut aussi passer le dir des différents binaires du cni via l'option `--cni-bin-dir` et les conf via `--cni-conf-dir`. Par def c'est `/opt/cni/bin/`. C'est ici qu'on retrouve les plugins disponibles. pour retrouver le plugin cni utilisé, lancer `ls /etc/cni/net.d/`
 
 Dans cette conf, on déclare notamment la solution à utiliser pour IPAM (IP addr management) qui permet de garantir que chaque IP est unique tout node confondu.
+
+En gal, on a les nodes qui sont co via leur iface réseau physique eth0 (l'ip attribuée à cette iface est celle de l'ip interne du node) et le network est géré par un router. Au sein d'un node, kubelet maintient le network via la CNI grâce aux outils de virtualisation réseau le plus souvent via une iface réseau virtuelle de type bridge (l'ip allouée à ce bridge est celle du range d'ip des pods). Au sein des pods, les conteneurs communiquent via localhost (les ports sont concurrents)
 
 ### plugin ex: Weave
 
@@ -211,7 +214,7 @@ Kube utilise coreDNS par def pour gérer et centraliser la résolution des nom d
 
 ![coreDNS kube](./images/coreDNS_kube.png)
 
-### Ingress
+### Ingress Controller
 
 Une pratique courante consiste à déployer un reverse proxy (NGINX, HAProxy, traefik) pour gérer la load balancing en entrée du cluster : c'est ce qu'on appelle un Ingress Controller. Cela permet de gérer le LB de nos services avec kube au lieu d'avoir un LB à gérer en plus en dehors. En pratique au début on se dit qu'on n'en a pas besoin et avec le temps la complexité augmente et on finit par se dire qu'on aurait dû le faire dès le début.
 
@@ -223,9 +226,9 @@ Kubernetes propose de split les responsabilités dans des def files distincts :
 * ingress controller = l'image que l'on va déployer e.g. nginx, haproxy via un `kind: Deployment`
 * ingress ressources = les règles de LB que l'on veut implem sur ce reverse proxy
 
-En pratique la conf de nginx (ou autre revewrse proxy) est gérée via des configMaps montées sur le pod.
+En pratique la conf de nginx (ou autre reverse proxy) est gérée via des configMaps montées sur le pod.
 
-Enfin, l'ingress controller ayant des responsabilités en terme de sécurité, en pratique on a besoin de lui attribuer un `kind: ServiceAccount` dédié afin de lui occroyer les permissions nécessaire pour fonctionner.
+Enfin, l'ingress controller ayant des responsabilités en terme de sécurité, en pratique on a besoin de lui attribuer un `kind: ServiceAccount` dédié afin de lui octroyer les permissions nécessaire pour fonctionner.
 
 Les ingress resources c'est de la conf. On utilise un def file `kind: Ingress`. Coté spec le min c'est de déclarer le `backend:` en spécifiant le nom du service destinataire et son port. `k get ingress` pour visualiser. On les utilise pour créer des règles de routing basées sur l'URL. Le def file prévoit aussi un default backend au cas où le path de la requete ne match avec aucune des regles déclarées dans le def file
 

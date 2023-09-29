@@ -9,3 +9,9 @@ Sauf que si un des core components est down, alors il se peut que kubectl ne ré
 docker ps -a | grep etcd-master # pour retrouver le conteneur qui nous intéresse
 docker logs $(docker ps -a | grep etcd-master | cut -d " " -f1)
 ```
+
+si docker n'est pas installé, tester via l'interface container runtime
+```sh
+crictl ps -a
+crictl logs <container id>
+```

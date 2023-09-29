@@ -35,7 +35,7 @@ Par def, tous les pods peuvent se "parler" donc il faut les restreindre.
 
 on passe un fichier de conf via l'option `--basic-auth-file` au service `kube-apiserver`. 1 ligne = 1 user. Si la liste est mise à jour il faut relancer le service. Pour le fichier de user token, l'option c'est `--token-auth-file`.
 
-### Rappel sur les certidicats TLS et PKI
+### Rappel sur les certificats TLS et PKI
 * TLS = ca sert à encrypter ET à garantir que le serveur est bien celui qu'il dit qu'il est
 * La diff entre le chiffrement symetrique et asymetrique c'est que en symetrique on utilise 1 clé seulement qui sert à encrypter et decrypter. En asymetrique, 1 clé (publique) sert à encrypter et une 2e (privée) sert à decrypter.
 * On utilise les 2 types de chiffrement en pratique : 
@@ -88,7 +88,7 @@ Tous ces éléments sont passés dans les différents services (pod static) via 
 
 L'outil kubeadm génère tous les certificats mais si on installe kube à la mano alors il faut tout faire.
 
-Pour afficher le contenu d'un certif openssl, on utilise la commande `openssl x509 -in <path du certif> -text -noout`. Les infos importantes sont : `Subject`, `Subject Alternative Name`, `Issuer` et `Validity`
+Pour afficher le contenu d'un certif openssl, on utilise la commande `openssl x509 -in <path du certif> -text -noout`. Les infos les plus courantes sont : `Subject`, `Subject Alternative Name`, `Issuer` et `Validity`
 
 ### Certificates API
 
@@ -98,6 +98,25 @@ On a pu voir que c'était relou de générer des paires de clés pour chaque nou
 * `k get csr <NAME> -o yaml` pour enfin pouvoir récupérer le certificat (encodé en base64)
 
 Le core component qui s'occupe de ça est le kuber-controller-manager. Si on inspect sa config on retrouve les 2 clés du CA.
+
+pour créer la demande il faut créer un objet `kind: CertificateSigningRequest`
+
+```yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: # le nom
+spec:
+  groups:
+  - system:authenticated
+  request: # <Paste the base64 encoded value of the CSR file>
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth
+```
+pour rappel, on encode en base64 via `cat <fichier à encoder> | base64 -w 0`
+
+ensuite on apply comme n'importe quel def file k8s
 
 ### KubeConfig
 
@@ -131,7 +150,7 @@ l'api ainsi que kubectl expose des outils pour ça.
 
 ### Service Accounts
 
-On crée d'abord un SA, ensuite on peut générer un token jwt qui peut être utilisé via le header Authorization de l'api kube.
+On crée d'abord un SA, ensuite on peut générer un token jwt qui peut être utilisé via le header Authorization de l'api kube. `kubectl create token <service account name>`
 
 Par def, un token est généré par namespace. Par def, kube injecte (*mount*) ce token dans toutes les ressources d'un namespace. On peut injecter le token qu'on veut via le noeud `serviceAccountName:` dans le def file d'une ressource.
 
