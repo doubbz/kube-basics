@@ -138,3 +138,25 @@ Rq à l'init de kubeadm :
 ### Tips CKA
 
 Pour tester que l'install est bonne, tenter de deployer un pod e.g. nginx
+
+
+# K8s alternatives
+
+## OpenShift
+
+Open Shift est une surcouche de k8s, une version entreprise de K8s. C'est le react-admin de k8s.
+
+Il peut etre installé sur du on-prem ou sur n'importe quel cloud provider mais il faut savoir qu'il a été particulièrement populaire lorsque les services K8s managés des cloud publiques n'existaient pas encore. Il s'agit donc d'une alternative à GKE/EKS/AKS.
+
+Voici quelques différences que l'on peut retenir :
+* OpenShift est plus opiniated que Kubernetes i.e. ils ont pris k8s et on ajouter quelques trucs deja tout fait par dessus
+* OpenShift est une solution Red Hat (donc on la conseille souvent aux entreprises qui ont deja du support chez RH)
+* Il y a moins de conf à faire puisque pas mal de chose fonctionne dès l'install
+* Parfois on choisit OS puisqu'on a besoin de rassurer les utilisateurs b2b qu'on a une grosse boite derrière
+
+Les inconvénients :
+* certains charts Helm open source ne supportent pas OpenShift
+* les nouvelles features de k8s arrivent en retard puisqu'il faut d'abord qu'OS les ship dans une nouvelle version et parfois certaines se retrouvent en doublon puisqu'elles existaient sur OS avant que k8s les ajoutent.
+* le support RH fait défaut parfois
+* en plus des bugs k8s, OS en ajoutent également
+* il est plus difficile de trouver des ingés OS que k8s
