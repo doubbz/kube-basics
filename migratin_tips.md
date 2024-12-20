@@ -1,0 +1,1 @@
+* quand on fait une migration depuis un docker compose p ex, ne pas oublier que compose expose tous les conteneurs en tant que service et ils sont tous joignables par leur nom dans chaque conteneur. Lorsqu'on les passe sur k8s, les pods ne sont pas joignables entre eux par défaut, il faut les exposer via des services afin que kube-dns puissent les déclarer dans les pods.

@@ -10,3 +10,6 @@
 8. [Troubleshoot](./troubleshoot.md)
 9. [Storage](./storage.md)
 10. [Networking](./networking.md)
+11. [Monitoring](./monitoring.md)
+12. [Plugins](./plugins.md)
+13. [cloud migrations tips](/.migratin_tips.md)

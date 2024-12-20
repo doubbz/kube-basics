@@ -65,7 +65,7 @@ Les namespaces ont été prévu pour les environnements dev/preprod/staging/qa/p
 
 Il n'y a pas de process qui tourne pour ça car kube gère ça en appliquant des règles de networking dans les nodes e.g. dns records ou table de routing (cf. [Networking](./networking.md))
 
-## Cluster IP
+## ClusterIP
 
 > Utile pour exposer un pod via un hostname à du **trafic interne** au cluster pour les DBs p ex
 
@@ -75,7 +75,7 @@ Il s'appuie lui aussi sur les labels d'un pod à travers la clé `selector`
 
 Ainsi, le pod est joignable via le nom du service ! p ex si j'ai un pod web-app et que je créé un service web-app-service de type clusterIP, alors les autres pods du cluster pourront appeler le pod via http://we-app-service
 
-## Node Port
+## NodePort
 
 > Expose un (groupe de) pod sur un port donné à l'entrée du cluster (trafic externe). Peu utilisé en prod car il y a des limitations
 

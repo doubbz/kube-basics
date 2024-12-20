@@ -13,7 +13,7 @@
 
 * `metadata` >> où l'on peut annoter des choses concernant le pod, notamment la clé `labels` qui permet en général de distinguer les pods sur le cluster (le choix des clés est libre pour tout ce qui se trouve dans les labels)
 * `spec` >> c'est là que tout va se jouer. À noter que les clés possibles dans cette partie sont différentes selon ce qu'on a choisi de déployer i.e. ce qu'on a mis dans `apiVersion`, `kind`
-  * `containers` est une liste car on peut avoir plusieurs containers dans un pod. C'est ici qu'on va renseigner l'image docker sur le registry docker hub (on peut utiliser un autre regitry bien sûr, dans ce cas il faut mettre l'url en entier)
+  * `containers` est une liste car on peut avoir plusieurs containers dans un pod. C'est ici qu'on va renseigner l'image docker sur le  docker hub (on peut utiliser un autre regitry bien sûr, dans ce cas il faut mettre l'url en entier)
 
 ## CLI commands
 
@@ -136,6 +136,12 @@ spec:
           audience: vault
 ```
 
+* pour base64 decode la data d'un secret opaque sans s'emmerder avec des grep et des cut :
+```sh
+kubectl get secret <name> -o go-template='{{.data.<data_key> | base64decode}}'
+```
+
+
 ### debug networking
 
 * pour trouver les infos de l'interface bridge que 
@@ -225,3 +231,103 @@ k <command> --as <username>
 ```yaml
 
 ```
+
+* pour debug les dns de pod et svc dans le cluster :
+```sh
+k run busybox --image=busybox -- sleep 4000
+k exec busybox -- nslookup <domain name e.g. svc.namespace.cluster.local>
+```
+
+* pour savoir si un svc a bien des terminaisons :
+```sh
+kubectl get endpoints -n <namespace> <service-name>
+```
+
+* port-forward
+```sh 
+kubectl port-forward service/bns-http-service-kind 8088:http
+```
+
+* installer un plugin avec krew
+```sh
+kubectl krew install score
+```
+
+* pour lancer un conteneur temporaire pour se ssh dessus et tester des trucs (notamment coté réseau p ex)
+```sh
+kubectl run -n <namespace> -i --tty --rm debug --image=busybox -- sh
+```
+
+* pour debug un prob réseau entre conteneur, quelques commandes utiles :
+```sh
+# avec kubectl
+k get endpoints -n <NS>
+
+# depuis un conteneur dans le meme NS ou dans un autre
+wget -qO- http://<endpoint-ip>:<endpoint-port>
+nslookup <my-app-service>.<my-app-namespace>.svc.cluster.local
+
+# depuis un conteneur du pod que l'on souhaite joindre
+netstat -nlpt
+# il faut que cela écoute sur le port ET vers l'extérieur et donc pas seulement sur 127.0.0.1
+```
+
+* on peut utiliser kubectl pour faire des appels API http sécurisé vers api server - particulièrement utile si on utilise une API / un endpoint / un argument / une option qui n'a pas encore été implémenté par kubectl :
+```sh
+kubectl get --raw "/apis/custom.metrics.k8s.io/v1beta1/namespaces/<namespace>/pods/*/phpfpm_processes_total"
+```
+
+* ajouté un max de verbosité dans kubectl (tellement qu'on voit meme les appels http passés à l'api server):
+```sh
+kubectl <command> -v 6"
+```
+
+* get workload cpu requests in a given namespace
+```sh
+k get po -n <NAMESPACE> --no-headers=true -o custom-columns='NAME:.metadata.name, CPU_REQUEST:.spec.containers[*].resources.requests.cpu, MEMORY_REQUEST:.spec.containers[*].resources.requests.memory'
+```
+
+* la meme donnée mais aggrégée
+```sh
+k get po -n <NAMESPACE> --no-headers=true -o custom-columns='NAME:.metadata.name, CPU_REQUEST:.spec.containers[*].resources.requests.cpu, MEMORY_REQUEST:.spec.containers[*].resources.requests.memory' | awk 'BEGIN {cpu=0; memory=0} {cpu+=$2; memory+=$3} END {print "Total CPU Requests: " cpu "\nTotal Memory Requests: " memory}'
+```
+
+* Exemples de commandes forgées à partir de 2 requêtes
+```sh
+# commande pour downscale tous les deployments contenant certains labels
+kubectl get ns -l part-of=brand-and-shop -o custom-columns=NAME:.metadata.name --no-headers | xargs -n1 kubectl scale deploy -l part-of=brand-and-shop,component=workload,type=worker --replicas 0 -n
+
+# commande pour ajouter des labels
+k get rabbitmqclusters.rabbitmq.com -A -o custom-columns=NAME:{.metadata.name} --no-headers | xargs -I {} -n1 kubectl label rabbitmqclusters {} rabbitmq.com/pauseReconciliation=true
+
+# pour reconstituer une liste '<ns>/<name>' puisque c'est ko avec l'operator rabbitmq
+k get rabbitmqclusters.rabbitmq.com -A -o custom-columns=NAMESPACE:{.metadata.namespace},NAME:{.metadata.name} --no-headers | awk '{print $1"/"$2}'
+
+# pour labeliser les ressources de meme type i.e. rabbitmqcluster dans des namespaces différents avec le meme label
+kubectl get rabbitmqclusters.rabbitmq.com -A -o custom-columns=NAMESPACE:{.metadata.namespace},NAME:{.metadata.name} --no-headers | xargs -I {} bash -c 'set -- {}; kubectl label rabbitmqclusters -n $1 $2 rabbitmq.com/pauseReconciliation=true'
+```
+  * `xargs -I {}` : Cette commande permet de prendre l'entrée standard (la sortie de la commande précédente) et de l'utiliser comme argument dans une autre commande.
+    * Le flag `-I {}` indique qu'à chaque itération, xargs remplacera `{}` par la ligne extraite de l'entrée standard (ici, une combinaison NAMESPACE NAME).
+  * `bash -c 'set -- {}; ...'` : Lance un sous-shell avec Bash.
+    * `set -- {}` : Cela remplace les arguments positionnels de la commande Bash avec la sortie de la commande précédente. Ici, `{}` est remplacé par la chaîne `"NAMESPACE NAME"`.
+    `$1` fait référence au namespace, et `$2` au nom du cluster RabbitMQ.
+  * `kubectl label rabbitmqclusters -n $1 $2 rabbitmq.com/pauseReconciliation=true` :
+    * Cette commande applique un label spécifique (rabbitmq.com/pauseReconciliation=true) à chaque cluster RabbitMQ trouvé.
+    `-n $1` : Spécifie le namespace de la ressource (représenté par `$1`).
+    `$2` : Spécifie le nom du cluster RabbitMQ à labelliser.
+
+* penser au kubectl patch pour automatiser des pods exceptionnels tout en s'appuyant sur des pods existants
+```sh
+kubectl create job bns-job-wrapper -n $NAMESPACE --from=cronjobs/bns-job-reindex-product --dry-run=client -o yaml | kubectl patch --dry-run=client -o yaml --type json --patch "[{ \"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/command\", \"value\": [\"${COMMAND}\"] }]" -f - | kubectl apply -f -
+```
+
+Sinon c'est aussi possible avec helm grace à un `{{- if .Values.jobManual }}` et un `helm install --set jobManual=true`
+
+* pour une liste des docker capabilities / linux capabilities pour les spec.securityContext, voir [ici](https://unofficial-kubernetes.readthedocs.io/en/latest/concepts/policy/container-capabilities/)
+
+* ne pas oublier le cache DNS local sur les ordis quand on teste apres un switch dns : 
+```sh
+# sur mac
+alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder'
+```
+et il faut aussi flush le cache du navigateur p ex sur firefox : `about:config`>`network.dnsCacheExpiration`>`value=0`

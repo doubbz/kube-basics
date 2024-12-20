@@ -66,4 +66,4 @@ Local volumes (`provisioner: kubernetes.io/no-provisioner`) do not currently sup
 
 Volume decouples the storage from the Container. Its **lifecycle is coupled to a pod**. It enables safe container restarts and **sharing data between containers in a pod**.
 
-**Persistent Volume decouples the storage from the Pod**. Its lifecycle is independent. It enables safe pod restarts and **sharing data between pods**.
+**Persistent Volume decouples the storage from the Pod**. Its lifecycle is independent. It enables safe pod restarts and **sharing data between pods**. For example, we can even delete all resources being mounted by the PVC, as long as the PVC is not deleted kubernetes will keep it along with its data. We can then re-mount it to another pod/deployment.

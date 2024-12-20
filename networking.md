@@ -49,7 +49,7 @@ N'importe quel host peut faire office de router. Ceci dit, une option peut coinc
 
 ### DNS
 
-Dans le passé, on gérait la résolution sur chaque host via le fichier /etc/hosts. Depuis on centralise la resolution dans un serveur DNS.
+Dans le passé, on gérait la résolution sur chaque host via le fichier /etc/hosts. Depuis on centralise la resolution dans un serveur .
 
 Coté host, on déclare un serveur DNS dans `/etc/resolv.conf`
 On peut ensuite gérer la priorité dans `/etc/nsswitch` (par def linux regarde d'abord en local et s'il ne trouve pas alors il va demande au serveur DNS)
@@ -139,6 +139,21 @@ Pour que les namespaces soient joignables, on active le port forwarding (comme s
 * Bridge = c'est un network privée avec l'ip 172.17.0.0 par defaut. Il utilise en grande partie les memes composants que l'on a étudié ce dessus. Chaque nouveau conteneur se voit assigner un nouveau namespace 
 
 Docker crée un network privée de type bridge qui s'appelle docker0 sur le host
+
+<details>
+Q: comment font les conteneurs d'un meme pod kubernetes pour communiquer ? sont ils dans le meme netns ou pas ?
+
+R: Dans Kubernetes, les conteneurs d'un même pod partagent le même espace de réseau (netns), ce qui signifie qu'ils peuvent communiquer entre eux via localhost. Chaque pod a sa propre adresse IP, et les conteneurs à l'intérieur du pod utilisent cette adresse IP pour communiquer les uns avec les autres. Cette configuration facilite la communication entre les différents services ou processus s'exécutant dans un même pod, tout en les isolant du reste du cluster Kubernetes. Ainsi, les conteneurs d'un même pod peuvent interagir via des appels réseau locaux comme s'ils étaient sur la même machine physique. Cela facilite le déploiement d'applications monolithiques ou d'applications basées sur des microservices dans Kubernetes, tout en offrant une isolation et une gestion efficaces des ressources.
+User
+
+
+Q: du coup le docker network fonctionne un peu différemment car en general on ne regroupe pas les conteneur dans un seul et meme netns
+
+R: Vous avez raison, le fonctionnement des réseaux Docker diffère de celui des pods Kubernetes en termes de gestion du réseau. En Docker, chaque conteneur a généralement son propre espace de réseau (netns), ce qui signifie qu'ils sont isolés les uns des autres par défaut, sauf si des configurations spécifiques sont faites pour les connecter à un même réseau Docker.
+
+Dans Kubernetes, l'objectif est de fournir une abstraction plus élevée que celle de Docker, permettant aux développeurs de gérer et de déployer des applications de manière plus transparente à l'échelle. Les pods Kubernetes sont la plus petite unité déployable et ils peuvent contenir un ou plusieurs conteneurs. Les conteneurs à l'intérieur d'un même pod partagent le même espace de réseau, ce qui simplifie la communication entre eux en utilisant localhost. Cette approche facilite le déploiement d'applications complexes avec plusieurs services interdépendants tout en garantissant l'isolation et la gestion des ressources.
+
+Ainsi, bien que Docker et Kubernetes utilisent des concepts similaires de conteneurisation, leurs approches en matière de réseau diffèrent pour répondre aux besoins spécifiques de leurs utilisateurs et de leurs cas d'utilisation respectifs.</details>
 
 #### Bridge
 
